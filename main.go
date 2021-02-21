@@ -2,6 +2,9 @@ package main
 
 import (
 	"bufio"
+	"crypto/sha256"
+	"encoding/binary"
+	"encoding/hex"
 	"flag"
 	"fmt"
 	"log"
@@ -35,8 +38,9 @@ func readURLS(path string) ([]url.URL, error) {
 	return out, nil
 }
 
-var getters = map[string]func(*s3.S3, int, []url.URL) error{
+var getters = map[string]func(*s3.S3, int, []url.URL) ([][]byte, error){
 	"concurrent": getConcurrent,
+	"pipelined":  getPipelined,
 }
 
 func main() {
@@ -73,14 +77,29 @@ func main() {
 	}
 
 	start := time.Now()
-	err = getter(s3svc, threads, urls)
+	out, err := getter(s3svc, threads, urls)
 	if err != nil {
 		log.Fatalf("getter: %s", err.Error())
 	}
-	log.Printf("downloaded elapsed=%s n=%d method=%s threads=%d",
+
+	hash := sha256.New()
+	for i, o := range out {
+		if o == nil {
+			log.Fatalf("file %d (%s): no file downloaded", i, urls[i].String())
+		}
+		var lenbuf [8]byte
+		binary.BigEndian.PutUint64(lenbuf[:], uint64(len(o)))
+		hash.Write(lenbuf[:])
+		hash.Write(o)
+	}
+
+	sum := hash.Sum(nil)
+
+	log.Printf("downloaded elapsed=%s n=%d method=%s threads=%d csum=%s",
 		time.Since(start),
 		len(urls),
 		mode,
 		threads,
+		hex.EncodeToString(sum),
 	)
 }
