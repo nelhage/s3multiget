@@ -128,13 +128,15 @@ func getPipelined(svc *s3.S3, conc int, urls []url.URL) ([][]byte, error) {
 
 	out := make([][]byte, len(urls))
 	grp.Go(func() error {
+		var err error
 		for got := range done {
 			if got.err != nil {
-				return got.err
+				err = got.err
+				continue
 			}
 			out[got.job.idx] = got.data
 		}
-		return nil
+		return err
 	})
 
 	for i := 0; i < conc; i++ {
