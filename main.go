@@ -49,12 +49,14 @@ func main() {
 		mode    string
 		threads int
 		files   string
+		csv     bool
 	)
 
 	flag.StringVar(&region, "region", "us-west-2", "AWS Region")
 	flag.StringVar(&mode, "mode", "concurrent", "Set the download mode")
 	flag.IntVar(&threads, "threads", 32, "Number of concurrent download threads")
 	flag.StringVar(&files, "files", "/dev/stdin", "List of S3 URLs to download")
+	flag.BoolVar(&csv, "csv", false, "Write out timings as CSV")
 
 	flag.Parse()
 
@@ -95,11 +97,18 @@ func main() {
 
 	sum := hash.Sum(nil)
 
-	log.Printf("downloaded elapsed=%s n=%d method=%s threads=%d csum=%s",
-		time.Since(start),
-		len(urls),
-		mode,
-		threads,
-		hex.EncodeToString(sum),
-	)
+	if csv {
+		fmt.Printf("%s,%d,%d,%s,%d\n",
+			mode, threads, len(urls), hex.EncodeToString(sum),
+			time.Since(start).Microseconds(),
+		)
+	} else {
+		log.Printf("downloaded elapsed=%s n=%d method=%s threads=%d csum=%s",
+			time.Since(start),
+			len(urls),
+			mode,
+			threads,
+			hex.EncodeToString(sum),
+		)
+	}
 }
